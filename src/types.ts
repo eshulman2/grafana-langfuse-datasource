@@ -8,7 +8,7 @@ export type QueryType =
   | 'observation_cost';
 
 export interface LangfuseQuery extends DataQuery {
-  queryType: QueryType;
+  queryType?: QueryType;
 }
 
 export interface LangfuseOptions extends DataSourceJsonData {

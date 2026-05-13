@@ -134,6 +134,17 @@ describe('LangfuseDatasource.query', () => {
       expect.any(Object)
     );
   });
+
+  it('uses the correct proxy URL for observation queries', async () => {
+    mockFetchAllPages.mockResolvedValue([]);
+    await ds.query(makeQueryOptions('observation_tokens', '2024-01-01T00:00:00Z', '2024-01-02T00:00:00Z'));
+
+    expect(mockFetchAllPages).toHaveBeenCalledWith(
+      '/api/datasources/proxy/1/langfuse',
+      '/api/public/observations',
+      expect.any(Object)
+    );
+  });
 });
 
 describe('LangfuseDatasource.testDatasource', () => {

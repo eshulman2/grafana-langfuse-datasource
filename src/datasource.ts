@@ -123,7 +123,7 @@ export class LangfuseDatasource extends DataSourceApi<LangfuseQuery, LangfuseOpt
 
   async testDatasource(): Promise<{ status: string; message: string }> {
     try {
-      await fetchAllPages(this.proxyUrl, '/api/public/traces', { limit: 1, page: 1 });
+      await fetchAllPages(this.proxyUrl, '/api/public/traces', {});
       return { status: 'success', message: 'Connected to Langfuse successfully' };
     } catch (err) {
       return { status: 'error', message: `Failed to connect: ${String(err)}` };

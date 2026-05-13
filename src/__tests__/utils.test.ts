@@ -76,11 +76,20 @@ describe('bucketByTime', () => {
     expect(result.times).toHaveLength(expectedBuckets);
   });
 
-  it('treats null values as zero for sum and avg', () => {
+  it('treats null values as zero for sum (null is skipped, empty bucket returns 0)', () => {
     const timestamps = ['2024-01-01T00:05:00Z'];
     const values: Array<number | null> = [null];
     const result = bucketByTime(timestamps, values, from, to, 'sum');
     expect(result.values[0]).toBe(0);
+  });
+
+  it('does not count null values in avg denominator', () => {
+    const from = new Date('2024-01-01T00:00:00Z').getTime();
+    const to = new Date('2024-01-01T06:00:00Z').getTime();
+    const timestamps = ['2024-01-01T00:05:00Z', '2024-01-01T00:06:00Z'];
+    const values: Array<number | null> = [4, null];
+    const result = bucketByTime(timestamps, values, from, to, 'avg');
+    expect(result.values[0]).toBeCloseTo(4.0); // null should not count toward denominator
   });
 });
 
@@ -149,5 +158,16 @@ describe('fetchAllPages', () => {
     mockFetch([{ data: [], totalPages: 1 }]);
     const result = await fetchAllPages('/proxy/langfuse', '/api/public/traces', {});
     expect(result).toHaveLength(0);
+  });
+
+  it('fetches all pages for 3-page response', async () => {
+    mockFetch([
+      { data: [{ id: '1' }], totalPages: 3 },
+      { data: [{ id: '2' }], totalPages: 3 },
+      { data: [{ id: '3' }], totalPages: 3 },
+    ]);
+    const result = await fetchAllPages('/proxy/langfuse', '/api/public/traces', {});
+    expect(result).toHaveLength(3);
+    expect((result[2] as any).id).toBe('3');
   });
 });

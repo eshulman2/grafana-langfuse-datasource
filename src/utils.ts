@@ -47,7 +47,11 @@ export function bucketByTime(
     }
     const idx = Math.floor((ts - from) / bucketMs);
     if (idx >= 0 && idx < bucketCount) {
-      buckets[idx].push(values[i] ?? 0);
+      if (aggregation === 'count') {
+        buckets[idx].push(0); // value doesn't matter for count
+      } else if (values[i] !== null && values[i] !== undefined) {
+        buckets[idx].push(values[i] as number);
+      }
     }
   }
 

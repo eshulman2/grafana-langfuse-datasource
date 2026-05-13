@@ -5,10 +5,19 @@ export type QueryType =
   | 'trace_latency'
   | 'trace_count'
   | 'observation_tokens'
-  | 'observation_cost';
+  | 'observation_cost'
+  | 'custom';
+
+export type Resource = 'traces' | 'observations' | 'scores';
+
+export type Aggregation = 'sum' | 'avg' | 'count';
 
 export interface LangfuseQuery extends DataQuery {
   queryType?: QueryType;
+  // Custom query fields — only used when queryType === 'custom'
+  resource?: Resource;
+  field?: string;
+  aggregation?: Aggregation;
 }
 
 export interface LangfuseOptions extends DataSourceJsonData {
@@ -20,21 +29,31 @@ export interface LangfuseOptions extends DataSourceJsonData {
 // Langfuse API response shapes
 export interface LangfuseTrace {
   id: string;
-  timestamp: string;       // ISO 8601 — when the trace was created
-  updatedAt: string;       // ISO 8601 — last update
+  timestamp: string;
+  updatedAt: string;
   totalCost: number | null;
-  latency: number | null;  // seconds (float)
+  latency: number | null;
 }
 
 export interface LangfuseObservation {
   id: string;
-  startTime: string;       // ISO 8601
+  startTime: string;
   totalCost: number | null;
   usageDetails: {
     input: number;
     output: number;
     total: number;
   } | null;
+}
+
+export interface LangfuseScore {
+  id: string;
+  traceId: string;
+  observationId: string | null;
+  timestamp: string;
+  value: number | null;
+  name: string;
+  dataType: string;
 }
 
 export interface LangfusePage<T> {

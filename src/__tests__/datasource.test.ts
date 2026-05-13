@@ -265,6 +265,15 @@ describe('LangfuseDatasource.query — custom mode', () => {
 
     jest.clearAllMocks();
     mockFetchAllPages.mockResolvedValue([]);
+    await ds.query(makeCustomOptions('observations'));
+    expect(mockFetchAllPages).toHaveBeenCalledWith(
+      expect.any(String),
+      '/api/public/observations',
+      expect.objectContaining({ fromStartTime: expect.any(String), toStartTime: expect.any(String) })
+    );
+
+    jest.clearAllMocks();
+    mockFetchAllPages.mockResolvedValue([]);
     await ds.query(makeCustomOptions('scores'));
     expect(mockFetchAllPages).toHaveBeenCalledWith(
       expect.any(String),

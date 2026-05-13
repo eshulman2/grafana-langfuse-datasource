@@ -70,6 +70,9 @@ export class LangfuseDatasource extends DataSourceApi<LangfuseQuery, LangfuseOpt
     const field = target.field ?? 'totalCost';
     const aggregation = target.aggregation ?? 'sum';
     const config = RESOURCE_CONFIG[resource];
+    if (!config) {
+      return new MutableDataFrame({ refId: target.refId, fields: [] });
+    }
 
     const records = await fetchAllPages<Record<string, unknown>>(
       this.proxyUrl,

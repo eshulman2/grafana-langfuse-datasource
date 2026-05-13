@@ -83,3 +83,18 @@ export function getBucketSize(rangeMs: number): number {
   }
   return DAY; // 1 day
 }
+
+export function getNestedValue(obj: Record<string, unknown>, path: string): number | null {
+  const parts = path.split('.');
+  let current: unknown = obj;
+  for (const part of parts) {
+    if (current === null || current === undefined || typeof current !== 'object') {
+      return null;
+    }
+    current = (current as Record<string, unknown>)[part];
+  }
+  if (typeof current === 'number') {
+    return current;
+  }
+  return null;
+}

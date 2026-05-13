@@ -169,3 +169,39 @@ describe('fetchAllPages', () => {
     expect((result[2] as any).id).toBe('3');
   });
 });
+
+import { getNestedValue } from '../utils';
+
+describe('getNestedValue', () => {
+  it('returns a top-level numeric field', () => {
+    expect(getNestedValue({ totalCost: 0.05 }, 'totalCost')).toBe(0.05);
+  });
+
+  it('returns a nested numeric field via dot-notation', () => {
+    expect(getNestedValue({ usageDetails: { total: 150 } }, 'usageDetails.total')).toBe(150);
+  });
+
+  it('returns null when the top-level field is missing', () => {
+    expect(getNestedValue({}, 'totalCost')).toBeNull();
+  });
+
+  it('returns null when an intermediate field is missing', () => {
+    expect(getNestedValue({}, 'usageDetails.total')).toBeNull();
+  });
+
+  it('returns null when the value is null', () => {
+    expect(getNestedValue({ totalCost: null }, 'totalCost')).toBeNull();
+  });
+
+  it('returns null when the value is a string, not a number', () => {
+    expect(getNestedValue({ name: 'test' }, 'name')).toBeNull();
+  });
+
+  it('returns zero when the value is 0', () => {
+    expect(getNestedValue({ value: 0 }, 'value')).toBe(0);
+  });
+
+  it('returns null when an intermediate node is null', () => {
+    expect(getNestedValue({ usageDetails: null }, 'usageDetails.total')).toBeNull();
+  });
+});

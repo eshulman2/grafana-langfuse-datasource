@@ -1,93 +1,148 @@
-import { getBackendSrv, isFetchError } from '@grafana/runtime';
 import {
-  CoreApp,
+  DataSourceApi,
   DataQueryRequest,
   DataQueryResponse,
-  DataSourceApi,
   DataSourceInstanceSettings,
-  createDataFrame,
   FieldType,
+  MutableDataFrame,
 } from '@grafana/data';
+import { LangfuseQuery, LangfuseOptions, LangfuseTrace, LangfuseObservation } from './types';
+import { fetchAllPages, bucketByTime } from './utils';
 
-import { MyQuery, MyDataSourceOptions, DEFAULT_QUERY, DataSourceResponse } from './types';
-import { lastValueFrom } from 'rxjs';
+export class LangfuseDatasource extends DataSourceApi<LangfuseQuery, LangfuseOptions> {
+  private readonly proxyUrl: string;
 
-export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
-  baseUrl: string;
-
-  constructor(instanceSettings: DataSourceInstanceSettings<MyDataSourceOptions>) {
+  constructor(instanceSettings: DataSourceInstanceSettings<LangfuseOptions>) {
     super(instanceSettings);
-    this.baseUrl = instanceSettings.url!;
+    this.proxyUrl = `${instanceSettings.url}/langfuse`;
   }
 
-  getDefaultQuery(_: CoreApp): Partial<MyQuery> {
-    return DEFAULT_QUERY;
-  }
+  async query(options: DataQueryRequest<LangfuseQuery>): Promise<DataQueryResponse> {
+    const { range, targets } = options;
+    const from = range.from.valueOf();
+    const to = range.to.valueOf();
+    const fromIso = range.from.toISOString();
+    const toIso = range.to.toISOString();
 
-  filterQuery(query: MyQuery): boolean {
-    // if no query has been provided, prevent the query from being executed
-    return !!query.queryText;
-  }
-
-  async query(options: DataQueryRequest<MyQuery>): Promise<DataQueryResponse> {
-    const { range } = options;
-    const from = range!.from.valueOf();
-    const to = range!.to.valueOf();
-
-    // Return a constant for each query.
-    const data = options.targets.map((target) => {
-      return createDataFrame({
-        refId: target.refId,
-        fields: [
-          { name: 'Time', values: [from, to], type: FieldType.time },
-          { name: 'Value', values: [target.constant, target.constant], type: FieldType.number },
-        ],
-      });
-    });
+    const data = await Promise.all(
+      targets
+        .filter((t) => !t.hide && t.queryType)
+        .map((t) => this.runQuery(t, from, to, fromIso, toIso))
+    );
 
     return { data };
   }
 
-  async request(url: string, params?: string) {
-    const response = getBackendSrv().fetch<DataSourceResponse>({
-      url: `${this.baseUrl}${url}${params?.length ? `?${params}` : ''}`,
-    });
-    return lastValueFrom(response);
-  }
-
-  /**
-   * Checks whether we can connect to the API.
-   */
-  async testDatasource() {
-    const defaultErrorMessage = 'Cannot connect to API';
-
-    try {
-      const response = await this.request('/health');
-      if (response.status === 200) {
-        return {
-          status: 'success',
-          message: 'Success',
-        };
-      } else {
-        return {
-          status: 'error',
-          message: response.statusText ? response.statusText : defaultErrorMessage,
-        };
-      }
-    } catch (err) {
-      let message = '';
-      if (typeof err === 'string') {
-        message = err;
-      } else if (isFetchError(err)) {
-        message = 'Fetch error: ' + (err.statusText ? err.statusText : defaultErrorMessage);
-        if (err.data && err.data.error && err.data.error.code) {
-          message += ': ' + err.data.error.code + '. ' + err.data.error.message;
-        }
-      }
-      return {
-        status: 'error',
-        message,
-      };
+  private async runQuery(
+    target: LangfuseQuery,
+    from: number,
+    to: number,
+    fromIso: string,
+    toIso: string
+  ): Promise<MutableDataFrame> {
+    switch (target.queryType) {
+      case 'trace_cost':
+        return this.queryTraceCost(target.refId, from, to, fromIso, toIso);
+      case 'trace_latency':
+        return this.queryTraceLatency(target.refId, from, to, fromIso, toIso);
+      case 'trace_count':
+        return this.queryTraceCount(target.refId, from, to, fromIso, toIso);
+      case 'observation_tokens':
+        return this.queryObservationTokens(target.refId, from, to, fromIso, toIso);
+      case 'observation_cost':
+        return this.queryObservationCost(target.refId, from, to, fromIso, toIso);
+      default:
+        return new MutableDataFrame({ refId: target.refId, fields: [] });
     }
   }
+
+  private async queryTraceCost(refId: string, from: number, to: number, fromIso: string, toIso: string) {
+    const traces = await fetchAllPages<LangfuseTrace>(this.proxyUrl, '/api/public/traces', {
+      fromUpdatedAt: fromIso,
+      toUpdatedAt: toIso,
+    });
+    const { times, values } = bucketByTime(
+      traces.map((t) => t.timestamp),
+      traces.map((t) => t.totalCost),
+      from, to, 'sum'
+    );
+    return toFrame(refId, 'Total Cost (USD)', FieldType.number, times, values);
+  }
+
+  private async queryTraceLatency(refId: string, from: number, to: number, fromIso: string, toIso: string) {
+    const traces = await fetchAllPages<LangfuseTrace>(this.proxyUrl, '/api/public/traces', {
+      fromUpdatedAt: fromIso,
+      toUpdatedAt: toIso,
+    });
+    const { times, values } = bucketByTime(
+      traces.map((t) => t.timestamp),
+      traces.map((t) => t.latency),
+      from, to, 'avg'
+    );
+    return toFrame(refId, 'Avg Latency (s)', FieldType.number, times, values);
+  }
+
+  private async queryTraceCount(refId: string, from: number, to: number, fromIso: string, toIso: string) {
+    const traces = await fetchAllPages<LangfuseTrace>(this.proxyUrl, '/api/public/traces', {
+      fromUpdatedAt: fromIso,
+      toUpdatedAt: toIso,
+    });
+    const { times, values } = bucketByTime(
+      traces.map((t) => t.timestamp),
+      traces.map(() => null),
+      from, to, 'count'
+    );
+    return toFrame(refId, 'Trace Volume', FieldType.number, times, values);
+  }
+
+  private async queryObservationTokens(refId: string, from: number, to: number, fromIso: string, toIso: string) {
+    const observations = await fetchAllPages<LangfuseObservation>(
+      this.proxyUrl, '/api/public/observations',
+      { fromStartTime: fromIso, toStartTime: toIso }
+    );
+    const { times, values } = bucketByTime(
+      observations.map((o) => o.startTime),
+      observations.map((o) => o.usageDetails?.total ?? 0),
+      from, to, 'sum'
+    );
+    return toFrame(refId, 'Total Tokens', FieldType.number, times, values);
+  }
+
+  private async queryObservationCost(refId: string, from: number, to: number, fromIso: string, toIso: string) {
+    const observations = await fetchAllPages<LangfuseObservation>(
+      this.proxyUrl, '/api/public/observations',
+      { fromStartTime: fromIso, toStartTime: toIso }
+    );
+    const { times, values } = bucketByTime(
+      observations.map((o) => o.startTime),
+      observations.map((o) => o.totalCost),
+      from, to, 'sum'
+    );
+    return toFrame(refId, 'Observation Cost (USD)', FieldType.number, times, values);
+  }
+
+  async testDatasource(): Promise<{ status: string; message: string }> {
+    try {
+      await fetchAllPages(this.proxyUrl, '/api/public/traces', { limit: 1, page: 1 });
+      return { status: 'success', message: 'Connected to Langfuse successfully' };
+    } catch (err) {
+      return { status: 'error', message: `Failed to connect: ${String(err)}` };
+    }
+  }
+}
+
+function toFrame(
+  refId: string,
+  name: string,
+  type: FieldType,
+  times: number[],
+  values: number[]
+): MutableDataFrame {
+  return new MutableDataFrame({
+    refId,
+    fields: [
+      { name: 'time', type: FieldType.time, values: times },
+      { name, type, values },
+    ],
+  });
 }

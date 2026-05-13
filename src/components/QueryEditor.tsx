@@ -1,45 +1,34 @@
-import React, { ChangeEvent } from 'react';
-import { InlineField, Input, Stack } from '@grafana/ui';
-import { QueryEditorProps } from '@grafana/data';
-import { DataSource } from '../datasource';
-import { MyDataSourceOptions, MyQuery } from '../types';
+import React from 'react';
+import { QueryEditorProps, SelectableValue } from '@grafana/data';
+import { Select, InlineField } from '@grafana/ui';
+import { LangfuseDatasource } from '../datasource';
+import { LangfuseOptions, LangfuseQuery, QueryType } from '../types';
 
-type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
+const QUERY_TYPE_OPTIONS: Array<SelectableValue<QueryType>> = [
+  { label: 'Cost (traces)', value: 'trace_cost', description: 'Sum of LLM cost per time bucket' },
+  { label: 'Latency (traces)', value: 'trace_latency', description: 'Average trace latency per time bucket' },
+  { label: 'Volume (traces)', value: 'trace_count', description: 'Number of traces per time bucket' },
+  { label: 'Token usage (observations)', value: 'observation_tokens', description: 'Total tokens (input + output) per time bucket' },
+  { label: 'Cost (observations)', value: 'observation_cost', description: 'Sum of observation cost per time bucket' },
+];
+
+type Props = QueryEditorProps<LangfuseDatasource, LangfuseQuery, LangfuseOptions>;
 
 export function QueryEditor({ query, onChange, onRunQuery }: Props) {
-  const onQueryTextChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onChange({ ...query, queryText: event.target.value });
-  };
-
-  const onConstantChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onChange({ ...query, constant: parseFloat(event.target.value) });
-    // executes the query
+  const onQueryTypeChange = (selected: SelectableValue<QueryType>) => {
+    onChange({ ...query, queryType: selected.value! });
     onRunQuery();
   };
 
-  const { queryText, constant } = query;
-
   return (
-    <Stack gap={0}>
-      <InlineField label="Constant">
-        <Input
-          id="query-editor-constant"
-          onChange={onConstantChange}
-          value={constant}
-          width={8}
-          type="number"
-          step="0.1"
-        />
-      </InlineField>
-      <InlineField label="Query Text" labelWidth={16} tooltip="Not used yet">
-        <Input
-          id="query-editor-query-text"
-          onChange={onQueryTextChange}
-          value={queryText || ''}
-          required
-          placeholder="Enter a query"
-        />
-      </InlineField>
-    </Stack>
+    <InlineField label="Metric" labelWidth={12}>
+      <Select
+        options={QUERY_TYPE_OPTIONS}
+        value={query.queryType}
+        onChange={onQueryTypeChange}
+        placeholder="Select metric..."
+        width={32}
+      />
+    </InlineField>
   );
 }

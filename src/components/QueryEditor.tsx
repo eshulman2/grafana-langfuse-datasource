@@ -48,7 +48,7 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
 
   const onResourceChange = (selected: SelectableValue<Resource>) => {
     const resource = selected.value!;
-    const firstField = RESOURCE_CONFIG[resource].fieldOptions[0]?.value ?? 'totalCost';
+    const firstField = RESOURCE_CONFIG[resource].fieldOptions[0]?.value ?? '';
     onChange({ ...query, resource, field: firstField });
     onRunQuery();
   };

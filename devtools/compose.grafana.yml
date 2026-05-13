@@ -29,8 +29,8 @@ services:
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
     volumes:
-      - ../dist:/var/lib/grafana/plugins/forge-langfuse-datasource:ro
-      - ../provisioning:/etc/grafana/provisioning:ro
+      - ../dist:/var/lib/grafana/plugins/forge-langfuse-datasource:ro,z
+      - ../provisioning:/etc/grafana/provisioning:ro,z
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
       interval: 10s

@@ -26,15 +26,17 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
 
   const onModeChange = (selected: SelectableValue<'fixed' | 'custom'>) => {
     if (selected.value === 'custom') {
+      const defaultResource: Resource = query.resource ?? 'traces';
+      const defaultField = query.field ?? RESOURCE_CONFIG[defaultResource].fieldOptions[0]?.value ?? '';
       onChange({
         ...query,
         queryType: 'custom',
-        resource: query.resource ?? 'traces',
-        field: query.field ?? 'totalCost',
+        resource: defaultResource,
+        field: defaultField,
         aggregation: query.aggregation ?? 'sum',
       });
     } else {
-      onChange({ ...query, queryType: undefined });
+      onChange({ ...query, queryType: undefined, resource: undefined, field: undefined, aggregation: undefined });
     }
     onRunQuery();
   };

@@ -3,24 +3,23 @@
   "type": "datasource",
   "name": "Langfuse",
   "id": "forge-langfuse-datasource",
-  "metrics": true,
   "info": {
-    "description": "",
-    "author": {
-      "name": "Forge"
-    },
-    "keywords": ["datasource"],
+    "description": "Connect Grafana to Langfuse for LLM observability",
+    "author": { "name": "Forge" },
+    "keywords": ["langfuse", "llm", "observability"],
     "logos": {
       "small": "img/logo.svg",
       "large": "img/logo.svg"
     },
-    "links": [],
-    "screenshots": [],
-    "version": "%VERSION%",
-    "updated": "%TODAY%"
+    "version": "1.0.0",
+    "updated": "2026-05-13"
   },
-  "dependencies": {
-    "grafanaDependency": ">=12.3.0",
-    "plugins": []
-  }
+  "routes": [
+    {
+      "path": "langfuse",
+      "url": "{{ .URL }}",
+      "authType": "basicAuth"
+    }
+  ],
+  "backend": false
 }

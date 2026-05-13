@@ -1,34 +1,48 @@
-import { DataSourceJsonData } from '@grafana/data';
-import { DataQuery } from '@grafana/schema';
+import { DataQuery, DataSourceJsonData } from '@grafana/data';
 
-export interface MyQuery extends DataQuery {
-  queryText?: string;
-  constant: number;
+export type QueryType =
+  | 'trace_cost'
+  | 'trace_latency'
+  | 'trace_count'
+  | 'observation_tokens'
+  | 'observation_cost';
+
+export interface LangfuseQuery extends DataQuery {
+  queryType: QueryType;
 }
 
-export const DEFAULT_QUERY: Partial<MyQuery> = {
-  constant: 6.5,
-};
-
-export interface DataPoint {
-  Time: number;
-  Value: number;
+export interface LangfuseOptions extends DataSourceJsonData {
+  // URL is stored in instanceSettings.url (Grafana standard field).
+  // Public key and secret key use Grafana's built-in basicAuth fields.
+  // No custom jsonData fields needed for v1.
 }
 
-export interface DataSourceResponse {
-  datapoints: DataPoint[];
+// Langfuse API response shapes
+export interface LangfuseTrace {
+  id: string;
+  timestamp: string;       // ISO 8601 — when the trace was created
+  updatedAt: string;       // ISO 8601 — last update
+  totalCost: number | null;
+  latency: number | null;  // seconds (float)
 }
 
-/**
- * These are options configured for each DataSource instance
- */
-export interface MyDataSourceOptions extends DataSourceJsonData {
-  path?: string;
+export interface LangfuseObservation {
+  id: string;
+  startTime: string;       // ISO 8601
+  totalCost: number | null;
+  usageDetails: {
+    input: number;
+    output: number;
+    total: number;
+  } | null;
 }
 
-/**
- * Value that is used in the backend, but never sent over HTTP to the frontend
- */
-export interface MySecureJsonData {
-  apiKey?: string;
+export interface LangfusePage<T> {
+  data: T[];
+  meta: {
+    page: number;
+    limit: number;
+    totalItems: number;
+    totalPages: number;
+  };
 }

@@ -162,3 +162,131 @@ describe('LangfuseDatasource.testDatasource', () => {
     expect(result.status).toBe('error');
   });
 });
+
+describe('LangfuseDatasource.query — custom mode', () => {
+  let ds: LangfuseDatasource;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    ds = new LangfuseDatasource(makeInstanceSettings());
+  });
+
+  it('fetches traces and returns a frame with dynamic label for traces/totalCost/sum', async () => {
+    mockFetchAllPages.mockResolvedValue([
+      { id: 't1', timestamp: '2024-01-01T01:00:00Z', totalCost: 0.05, latency: 1.0 },
+    ]);
+
+    const options = {
+      targets: [{ queryType: 'custom', resource: 'traces', field: 'totalCost', aggregation: 'sum', refId: 'A', hide: false }],
+      range: {
+        from: dateTime('2024-01-01T00:00:00Z'),
+        to: dateTime('2024-01-02T00:00:00Z'),
+        raw: { from: '2024-01-01T00:00:00Z', to: '2024-01-02T00:00:00Z' },
+      },
+      requestId: 'test', timezone: 'UTC', scopedVars: {}, startTime: 0,
+    } as any;
+
+    const result = await ds.query(options);
+    expect(result.data).toHaveLength(1);
+    const frame = result.data[0];
+    expect(frame.fields[0].name).toBe('time');
+    expect(frame.fields[1].name).toBe('traces / totalCost (sum)');
+  });
+
+  it('fetches observations for observations resource', async () => {
+    mockFetchAllPages.mockResolvedValue([
+      { id: 'o1', startTime: '2024-01-01T01:00:00Z', usageDetails: { input: 100, output: 50, total: 150 } },
+    ]);
+
+    const options = {
+      targets: [{ queryType: 'custom', resource: 'observations', field: 'usageDetails.total', aggregation: 'sum', refId: 'A', hide: false }],
+      range: {
+        from: dateTime('2024-01-01T00:00:00Z'),
+        to: dateTime('2024-01-02T00:00:00Z'),
+        raw: { from: '2024-01-01T00:00:00Z', to: '2024-01-02T00:00:00Z' },
+      },
+      requestId: 'test', timezone: 'UTC', scopedVars: {}, startTime: 0,
+    } as any;
+
+    const result = await ds.query(options);
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].fields[1].name).toBe('observations / usageDetails.total (sum)');
+    expect(mockFetchAllPages).toHaveBeenCalledWith(
+      '/api/datasources/proxy/1/langfuse',
+      '/api/public/observations',
+      expect.any(Object)
+    );
+  });
+
+  it('fetches scores for scores resource', async () => {
+    mockFetchAllPages.mockResolvedValue([
+      { id: 's1', timestamp: '2024-01-01T01:00:00Z', value: 0.9 },
+    ]);
+
+    const options = {
+      targets: [{ queryType: 'custom', resource: 'scores', field: 'value', aggregation: 'avg', refId: 'A', hide: false }],
+      range: {
+        from: dateTime('2024-01-01T00:00:00Z'),
+        to: dateTime('2024-01-02T00:00:00Z'),
+        raw: { from: '2024-01-01T00:00:00Z', to: '2024-01-02T00:00:00Z' },
+      },
+      requestId: 'test', timezone: 'UTC', scopedVars: {}, startTime: 0,
+    } as any;
+
+    const result = await ds.query(options);
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].fields[1].name).toBe('scores / value (avg)');
+    expect(mockFetchAllPages).toHaveBeenCalledWith(
+      '/api/datasources/proxy/1/langfuse',
+      '/api/public/scores',
+      expect.any(Object)
+    );
+  });
+
+  it('uses correct time params for each resource', async () => {
+    mockFetchAllPages.mockResolvedValue([]);
+
+    const makeCustomOptions = (resource: string) => ({
+      targets: [{ queryType: 'custom', resource, field: 'totalCost', aggregation: 'sum', refId: 'A', hide: false }],
+      range: {
+        from: dateTime('2024-01-01T00:00:00Z'),
+        to: dateTime('2024-01-02T00:00:00Z'),
+        raw: { from: '2024-01-01T00:00:00Z', to: '2024-01-02T00:00:00Z' },
+      },
+      requestId: 'test', timezone: 'UTC', scopedVars: {}, startTime: 0,
+    } as any);
+
+    await ds.query(makeCustomOptions('traces'));
+    expect(mockFetchAllPages).toHaveBeenCalledWith(
+      expect.any(String),
+      '/api/public/traces',
+      expect.objectContaining({ fromUpdatedAt: expect.any(String), toUpdatedAt: expect.any(String) })
+    );
+
+    jest.clearAllMocks();
+    mockFetchAllPages.mockResolvedValue([]);
+    await ds.query(makeCustomOptions('scores'));
+    expect(mockFetchAllPages).toHaveBeenCalledWith(
+      expect.any(String),
+      '/api/public/scores',
+      expect.objectContaining({ fromTimestamp: expect.any(String), toTimestamp: expect.any(String) })
+    );
+  });
+
+  it('defaults to traces/totalCost/sum when fields are missing', async () => {
+    mockFetchAllPages.mockResolvedValue([]);
+
+    const options = {
+      targets: [{ queryType: 'custom', refId: 'A', hide: false }],
+      range: {
+        from: dateTime('2024-01-01T00:00:00Z'),
+        to: dateTime('2024-01-02T00:00:00Z'),
+        raw: { from: '2024-01-01T00:00:00Z', to: '2024-01-02T00:00:00Z' },
+      },
+      requestId: 'test', timezone: 'UTC', scopedVars: {}, startTime: 0,
+    } as any;
+
+    const result = await ds.query(options);
+    expect(result.data[0].fields[1].name).toBe('traces / totalCost (sum)');
+  });
+});

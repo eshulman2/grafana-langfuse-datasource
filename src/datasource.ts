@@ -7,7 +7,8 @@ import {
   MutableDataFrame,
 } from '@grafana/data';
 import { LangfuseQuery, LangfuseOptions, LangfuseTrace, LangfuseObservation } from './types';
-import { fetchAllPages, bucketByTime } from './utils';
+import { fetchAllPages, bucketByTime, getNestedValue } from './utils';
+import { RESOURCE_CONFIG } from './resourceConfig';
 
 export class LangfuseDatasource extends DataSourceApi<LangfuseQuery, LangfuseOptions> {
   private readonly proxyUrl: string;
@@ -51,9 +52,39 @@ export class LangfuseDatasource extends DataSourceApi<LangfuseQuery, LangfuseOpt
         return this.queryObservationTokens(target.refId, from, to, fromIso, toIso);
       case 'observation_cost':
         return this.queryObservationCost(target.refId, from, to, fromIso, toIso);
+      case 'custom':
+        return this.queryCustom(target, from, to, fromIso, toIso);
       default:
         return new MutableDataFrame({ refId: target.refId, fields: [] });
     }
+  }
+
+  private async queryCustom(
+    target: LangfuseQuery,
+    from: number,
+    to: number,
+    fromIso: string,
+    toIso: string
+  ): Promise<MutableDataFrame> {
+    const resource = target.resource ?? 'traces';
+    const field = target.field ?? 'totalCost';
+    const aggregation = target.aggregation ?? 'sum';
+    const config = RESOURCE_CONFIG[resource];
+
+    const records = await fetchAllPages<Record<string, unknown>>(
+      this.proxyUrl,
+      config.endpoint,
+      { [config.fromParam]: fromIso, [config.toParam]: toIso }
+    );
+
+    const timestamps = records.map((r) => String(r[config.timestampField] ?? ''));
+    const values = aggregation === 'count'
+      ? records.map(() => null)
+      : records.map((r) => getNestedValue(r, field));
+
+    const { times, values: bucketValues } = bucketByTime(timestamps, values, from, to, aggregation);
+    const label = `${resource} / ${field} (${aggregation})`;
+    return toFrame(target.refId, label, FieldType.number, times, bucketValues);
   }
 
   private async queryTraceCost(refId: string, from: number, to: number, fromIso: string, toIso: string) {

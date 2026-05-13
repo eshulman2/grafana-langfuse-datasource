@@ -8,9 +8,10 @@ export async function fetchAllPages<T>(
   params: Record<string, string | number>,
 ): Promise<T[]> {
   const results: T[] = [];
+  const MAX_PAGES = 200;
   let page = 1;
 
-  while (true) {
+  while (page <= MAX_PAGES) {
     const response = await lastValueFrom(
       getBackendSrv().fetch<LangfusePage<T>>({
         url: `${proxyUrl}${path}`,

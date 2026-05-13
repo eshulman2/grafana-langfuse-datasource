@@ -1,4 +1,12 @@
-import { getBucketSize, bucketByTime } from '../utils';
+import { getBucketSize, bucketByTime, fetchAllPages } from '../utils';
+import { getBackendSrv } from '@grafana/runtime';
+import { of } from 'rxjs';
+
+jest.mock('@grafana/runtime', () => ({
+  getBackendSrv: jest.fn(),
+}));
+
+const mockGetBackendSrv = getBackendSrv as jest.MockedFunction<typeof getBackendSrv>;
 
 const MIN = 60_000;
 const HOUR = 3_600_000;
@@ -92,16 +100,6 @@ describe('bucketByTime', () => {
     expect(result.values[0]).toBeCloseTo(4.0); // null should not count toward denominator
   });
 });
-
-import { fetchAllPages } from '../utils';
-import { getBackendSrv } from '@grafana/runtime';
-import { of } from 'rxjs';
-
-jest.mock('@grafana/runtime', () => ({
-  getBackendSrv: jest.fn(),
-}));
-
-const mockGetBackendSrv = getBackendSrv as jest.MockedFunction<typeof getBackendSrv>;
 
 function mockFetch(pages: Array<{ data: unknown[]; totalPages: number }>) {
   let call = 0;

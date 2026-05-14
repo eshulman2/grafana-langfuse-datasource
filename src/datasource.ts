@@ -54,6 +54,8 @@ export class LangfuseDatasource extends DataSourceApi<LangfuseQuery, LangfuseOpt
         return this.queryObservationCost(target.refId, from, to, fromIso, toIso);
       case 'custom':
         return this.queryCustom(target, from, to, fromIso, toIso);
+      case 'traces_view':
+        return this.queryTracesView(target.refId, fromIso, toIso);
       default:
         return new MutableDataFrame({ refId: target.refId, fields: [] });
     }
@@ -153,6 +155,58 @@ export class LangfuseDatasource extends DataSourceApi<LangfuseQuery, LangfuseOpt
       from, to, 'sum'
     );
     return toFrame(refId, 'Observation Cost (USD)', FieldType.number, times, values);
+  }
+
+  private async queryTracesView(refId: string, fromIso: string, toIso: string): Promise<MutableDataFrame> {
+    const traces = await fetchAllPages<LangfuseTrace>(this.proxyUrl, '/api/public/traces', {
+      fromUpdatedAt: fromIso,
+      toUpdatedAt: toIso,
+    });
+
+    const frame = new MutableDataFrame({
+      refId,
+      meta: { preferredVisualisationType: 'trace' as any },
+      fields: [
+        { name: 'traceID', type: FieldType.string, values: [] },
+        { name: 'spanID', type: FieldType.string, values: [] },
+        { name: 'parentSpanID', type: FieldType.string, values: [] },
+        { name: 'operationName', type: FieldType.string, values: [] },
+        { name: 'serviceName', type: FieldType.string, values: [] },
+        { name: 'startTime', type: FieldType.number, values: [] },
+        { name: 'duration', type: FieldType.number, values: [] },
+        { name: 'tags', type: FieldType.other, values: [] },
+        { name: 'logs', type: FieldType.other, values: [] },
+        { name: 'warnings', type: FieldType.other, values: [] },
+      ],
+    });
+
+    for (const trace of traces) {
+      const tags: Array<{ key: string; value: string }> = [];
+      if (trace.totalCost != null) {
+        tags.push({ key: 'cost', value: String(trace.totalCost) });
+      }
+      if (trace.environment) {
+        tags.push({ key: 'environment', value: trace.environment });
+      }
+      if (trace.userId) {
+        tags.push({ key: 'userId', value: trace.userId });
+      }
+
+      frame.add({
+        traceID: trace.id,
+        spanID: trace.id,
+        parentSpanID: '',
+        operationName: trace.name || trace.id,
+        serviceName: 'langfuse',
+        startTime: new Date(trace.timestamp).getTime(),
+        duration: (trace.latency ?? 0) * 1000,
+        tags,
+        logs: [],
+        warnings: [],
+      });
+    }
+
+    return frame;
   }
 
   async testDatasource(): Promise<{ status: string; message: string }> {

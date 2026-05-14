@@ -6,7 +6,8 @@ export type QueryType =
   | 'trace_count'
   | 'observation_tokens'
   | 'observation_cost'
-  | 'custom';
+  | 'custom'
+  | 'traces_view';
 
 export type Resource = 'traces' | 'observations' | 'scores';
 
@@ -29,10 +30,13 @@ export interface LangfuseOptions extends DataSourceJsonData {
 // Langfuse API response shapes
 export interface LangfuseTrace {
   id: string;
+  name: string;
   timestamp: string;
   updatedAt: string;
   totalCost: number | null;
   latency: number | null;
+  environment: string | null;
+  userId: string | null;
 }
 
 export interface LangfuseObservation {

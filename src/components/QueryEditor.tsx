@@ -11,6 +11,7 @@ const FIXED_QUERY_TYPE_OPTIONS: Array<SelectableValue<QueryType>> = [
   { label: 'Volume (traces)', value: 'trace_count', description: 'Number of traces per time bucket' },
   { label: 'Token usage (observations)', value: 'observation_tokens', description: 'Total tokens (input + output) per time bucket' },
   { label: 'Cost (observations)', value: 'observation_cost', description: 'Sum of observation cost per time bucket' },
+  { label: 'Traces viewer', value: 'traces_view', description: 'Show traces in Grafana trace view (use in Explore)' },
 ];
 
 const MODE_OPTIONS: Array<SelectableValue<'fixed' | 'custom'>> = [
